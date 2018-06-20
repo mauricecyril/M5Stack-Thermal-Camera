@@ -1,15 +1,14 @@
-# M5Stack-Thermal-Camera-
-https://www.youtube.com/watch?v=4CWGr7EDIt4
+# M5Stack-Thermal-Camera
+forked from hkoffer https://github.com/hkoffer/M5Stack-Thermal-Camera-
 
-M5Stack Thermal Camera with AMG8833 thermal sensor. The connection between M5Stack &amp; the sensor is I2C
+What differ from the original repo:
+- Code refactoring
+- Display the min value
+- Move the spot value (in float) to the center
+- Pin point the min and max pixel (min colored in blue and max in white)
+- Add Frozen state (press B button)
 
-https://twitter.com/Offer68328171/status/990110652671799297
-
-
-
-<img style="-webkit-user-select: none;cursor: zoom-in;" src="https://raw.githubusercontent.com/hkoffer/M5Stack-Thermal-Camera-/master/IR001.jpg" >
-
-M5Stack Thermal Camera code is modify from library for the Adafruit AMG88xx  https://github.com/adafruit/Adafruit_AMG88xx
+<img style="-webkit-user-select: none;cursor: zoom-in;" src="https://raw.githubusercontent.com/m600x/M5Stack-Thermal-Camera/master/m5stack.jpg" >
 
 This is a library for the Adafruit AMG88xx based thermal cameras:
 Adafruit invests time and resources providing this open source code, please support Adafruit and open-source hardware by purchasing products from Adafruit!
