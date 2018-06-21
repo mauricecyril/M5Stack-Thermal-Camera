@@ -18,13 +18,6 @@
 #include <Wire.h>
 #include <Adafruit_AMG88xx.h>
 
-//low range of the sensor (this will be blue on the screen)
-byte MINTEMP = 20;
-
-//high range of the sensor (this will be red on the screen)
-byte MAXTEMP = 32;
-
-//the colors we will be using
 const uint16_t camColors[] = {0x480F,
 0x400F, 0x400F, 0x400F, 0x4010, 0x3810, 0x3810, 0x3810, 0x3810, 0x3010, 0x3010,
 0x3010, 0x2810, 0x2810, 0x2810, 0x2810, 0x2010, 0x2010, 0x2010, 0x1810, 0x1810,
@@ -61,12 +54,16 @@ Adafruit_AMG88xx amg;
 
 float arrayRaw[AMG_COLS * AMG_ROWS];
 float arrayInterpolated[INTERPOLATED_ROWS * INTERPOLATED_COLS];
+int minScale = 22;
+int maxScale = 32;
 int valueMax = 0;
 int valueMin = 80;
 int valueSpot = 0;
 int minPixel[] = {0, 0};
 int maxPixel[] = {0, 0};
 boolean onHold = false;
+boolean pinMin = false;
+boolean pinMax = true;
 
 uint16_t pixelSize = min(M5.Lcd.width() / INTERPOLATED_COLS, M5.Lcd.height() / INTERPOLATED_COLS);
 
@@ -81,11 +78,12 @@ void    interpolate_image(float *src, uint8_t src_rows, uint8_t src_cols, float 
 void setup()
 {
     M5.begin();
-    M5.setWakeupButton(BUTTON_B_PIN);
+//    M5.setWakeupButton(BUTTON_B_PIN);
     M5.Lcd.begin();
     M5.Lcd.setRotation(1);
-    M5.Lcd.fillScreen(TFT_BLACK);
-    M5.Lcd.setTextColor(TFT_WHITE);
+    M5.Lcd.setBrightness(255);
+    M5.Lcd.fillScreen(BLACK);
+    M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextSize(2);
     while (!amg.begin())
         delay(10);
@@ -94,158 +92,189 @@ void setup()
 }
 
 void loop() {
+    long start = millis();
+    // 0. Handle buttons usage
     handleButtons();
-    M5.update();
     // If not in frozen state, get new data
     if (!onHold)
     {
+        // 1. Read the sensor
         amg.readPixels(arrayRaw);
+        // 2. Check for reading error
+        errorCheck();
+        // 3. Interpolate the image
         interpolate_image(arrayRaw, AMG_ROWS, AMG_COLS, arrayInterpolated, INTERPOLATED_ROWS, INTERPOLATED_COLS);
+        // 4. Check the MIN/MAX values along with position in the interpolated image
+        checkValues();
+        // 5. Draw the image
         drawImage();
-        if (mustRedraw())
-        {
-            drawData();
-            drawMinMax();
-        }
+        // 6. Overlay the MIN/MAX pixel
+        drawMinMax();
+        // 7. Draw the reading and fps
+        drawData(start);
     }
-    delay(10);
+    M5.update();
 }
 
-boolean mustRedraw(void) {
-    if ((valueMax > 80 || valueMax < 0) || (valueMax > 80 || valueMax < 0))
-    {
-        M5.Lcd.fillRect(40, 100, 240, 140, TFT_BLACK);
-        M5.Lcd.setTextColor(TFT_RED);
-        M5.Lcd.printf("VALUE ERROR", 1);
-        while (!amg.begin())
-            delay(10);
-        return false;
+void errorCheck(void) {
+    for (int i = 0; i < (AMG_COLS * AMG_ROWS); i++) {
+        if (arrayRaw[i] > 80 || arrayRaw[i] < 0)
+        {
+            M5.Lcd.fillScreen(BLACK);
+            M5.Lcd.setTextDatum(MC_DATUM);
+            M5.Lcd.setTextColor(RED);
+            M5.Lcd.drawString("ERROR SENSOR READING", 160, 110);
+            M5.Lcd.drawString("Auto reboot in 5 seconds", 160, 130);
+            M5.Lcd.drawString("Array " + String(i) + ":" + String(arrayRaw[i]), 160, 150);
+            delay(5000);
+            esp_sleep_enable_timer_wakeup(1000);
+            esp_deep_sleep_start();
+        }
     }
-    return true;
 }
 
 void handleButtons(void) {
-    if (M5.BtnB.pressedFor(1000)) {
-        M5.powerOFF();
-    }
-    if (M5.BtnB.wasPressed()) {
-        onHold = onHold ? false : true;
+//    if (M5.BtnB.pressedFor(1000))
+//    {
+//        onHold = onHold ? false : true;
+//        return ;
+//    }
+    if (M5.BtnB.wasPressed())
+    {
+        minScale = valueMin;
+        maxScale = valueMax;
+        drawScaleValues();
+        return ;
     }
     // Active only if the screen is not in frozen state
     if (!onHold)
     {
+        // Save the current value
+        int prevMinScale = minScale;
+        int prevMaxScale = maxScale;
+        // Press A to increase MIN temp scale
+        if (M5.BtnA.wasPressed())
+            minScale = (minScale < maxScale - 1) ? (minScale + 1) : minScale;
+        // Long press A to decrease MIN temp scale
         if (M5.BtnA.pressedFor(1000))
-        {
-            MINTEMP = valueMin;
-            valueMin = 80;
+            minScale = (minScale > 0) ? (minScale - 1) : minScale;
+        // Press B to increase MAX temp scale
+        if (M5.BtnC.wasPressed())
+            maxScale = (maxScale < 80) ? (maxScale + 1) : maxScale;
+        // Long press B to decrease MAX temp scale
+        if (M5.BtnC.pressedFor(1000))
+            maxScale = (maxScale > minScale + 1) ? (maxScale - 1) : maxScale;
+        // Check for modified values to redraw the scale
+        if (prevMinScale != minScale || prevMaxScale != maxScale)
             drawScaleValues();
-        }
+    }
+    else
+    {
         if (M5.BtnA.wasPressed())
         {
-            MINTEMP = (MINTEMP <= 0) ? (MAXTEMP - 1) : (MINTEMP - 1);
-            drawScaleValues();
-        }
-        if (M5.BtnC.pressedFor(1000))
-        {
-            MAXTEMP = valueMax;
-            valueMax = 0;
-            drawScaleValues();
+            pinMin = pinMin ? false : true;
+            drawImage();
+            drawMinMax();
         }
         if (M5.BtnC.wasPressed())
         {
-            MAXTEMP = (MAXTEMP >= 80) ? (MINTEMP + 1) : (MAXTEMP + 1);
-            drawScaleValues();
+            pinMax = pinMax ? false : true;
+            drawImage();
+            drawMinMax();
         }
     }
+
 }
 
 void drawScaleValues(void) {
-    M5.Lcd.fillRect(0, 0, 36, 16, TFT_BLACK);
-    M5.Lcd.setCursor(0, 1);
-    M5.Lcd.print(MAXTEMP , 1);
-    M5.Lcd.printf("C" , 1);
-    M5.Lcd.setCursor(0, 225);
-    M5.Lcd.fillRect(0, 225, 36, 16, TFT_BLACK);
-    M5.Lcd.print(MINTEMP , 1);
-    M5.Lcd.printf("C" , 1);
+    M5.Lcd.fillRect(0, 225, 36, 16, BLACK);
+    M5.Lcd.fillRect(0, 0, 36, 16, BLACK);
+    M5.Lcd.drawString(String(minScale) + "C", 0, 225);
+    M5.Lcd.drawString(String(maxScale) + "C", 0, 1);
+    M5.Lcd.setTextColor(DARKGREY);
+    M5.Lcd.drawString("MAX", 284, 18);
+    M5.Lcd.drawString("FPS", 284, 104);
+    M5.Lcd.drawString("MIN", 284, 206);
+    M5.Lcd.setTextColor(WHITE);
 }
 
 void drawScale() {
     int icolor = 255;
     for (int y = 16; y <= 223; y++)
         M5.Lcd.drawRect(0, 0, 35, y, camColors[icolor--]);
-    drawScaleValues();
 }
 
-void drawData(void) {
-    // Reset the right bar
-    M5.Lcd.fillRect(280, 0, 40, 240, TFT_BLACK);
-    // Max value
-    M5.Lcd.setCursor(284, 0);
-    M5.Lcd.printf("MAX", 1);
-    M5.Lcd.setCursor(284, 18);
-    M5.Lcd.print(valueMax, 1);
-    M5.Lcd.printf("C" , 1);
+void drawData(long startTime) {
     // Min value
-    M5.Lcd.setCursor(284, 206);
-    M5.Lcd.printf("MIN", 1);
-    M5.Lcd.setCursor(284, 225);
-    M5.Lcd.print(valueMin, 1);
-    M5.Lcd.printf("C" , 1);
+    M5.Lcd.fillRect(280, 225, 40, 15, BLACK);
+    M5.Lcd.drawString(String(valueMin) + "C", 284, 225);
+    // Max value
+    M5.Lcd.fillRect(280, 0, 40, 15, BLACK);
+    M5.Lcd.drawString(String(valueMax) + "C", 284, 0);
     // Spot value
-    M5.Lcd.setCursor(130, 135);
-    M5.Lcd.print(arrayRaw[28], 1);
-    M5.Lcd.printf("C" , 1);
-    // Draw center spot
+    M5.Lcd.drawString(String(arrayRaw[28]), 130, 135);
+    // Draw center spot over the image
     M5.Lcd.drawCircle(160, 120, 6, TFT_WHITE);
     M5.Lcd.drawLine(160, 110, 160, 130, TFT_WHITE);
     M5.Lcd.drawLine(150, 120, 170, 120, TFT_WHITE);
+    // FPS value
+    M5.Lcd.fillRect(280, 86, 40, 15, BLACK);
+    M5.Lcd.drawString(String(1000 / (int)(millis() - startTime)), 288, 86);
 
 }
 
-void checkPixelValue(float value, int x, int y) {
-    if ((int) value > valueMax)
-    {
-        valueMax = (int) value;
-        maxPixel[0] = x;
-        maxPixel[1] = y;
-    }
-    if ((int) value < valueMin)
-    {
-        valueMin = (int) value;
-        minPixel[0] = x;
-        minPixel[1] = y;
-    }
-}
-
-void drawImage(void) {
+void checkValues() {
     // Reset min and max value
     valueMax = INT_MIN;
     valueMin = INT_MAX;
     for (int y = 0; y < INTERPOLATED_ROWS; y++) {
         for (int x = 0; x < INTERPOLATED_COLS; x++) {
-            float val = get_point(arrayInterpolated, INTERPOLATED_ROWS, INTERPOLATED_COLS, x, y);
-            checkPixelValue(val, x, y);
-            int colorTemp = val;
-            if (val >= MAXTEMP)
-                colorTemp = MAXTEMP;
-            else if (val <= MINTEMP)
-                colorTemp = MINTEMP;
-            uint8_t colorIndex = constrain(map(colorTemp, MINTEMP, MAXTEMP, 0, 255), 0, 255);
+            int pixel = (int) get_point(arrayInterpolated, INTERPOLATED_ROWS, INTERPOLATED_COLS, x, y);
+            // Save the max value and keep the coordinate of the pixel
+            if (pixel > valueMax)
+            {
+                valueMax = pixel;
+                maxPixel[0] = x;
+                maxPixel[1] = y;
+            }
+            // Save the min value and keep the coordinate of the pixel
+            if (pixel < valueMin)
+            {
+                valueMin = pixel;
+                minPixel[0] = x;
+                minPixel[1] = y;
+            }
+        }
+    }
+}
+
+void drawImage(void) {
+    // Draw the image from arrayInterpolated using color from camColors
+    for (int y = 0; y < INTERPOLATED_ROWS; y++) {
+        for (int x = 0; x < INTERPOLATED_COLS; x++) {
+            float pixel = get_point(arrayInterpolated, INTERPOLATED_ROWS, INTERPOLATED_COLS, x, y);
+            pixel = (pixel >= maxScale) ? maxScale : (pixel <= minScale) ? minScale : pixel;
+            uint8_t colorIndex = constrain(map((int)pixel, minScale, maxScale, 0, 255), 0, 255);
             M5.Lcd.fillRect(40 + pixelSize * x, pixelSize * y, pixelSize, pixelSize, camColors[colorIndex]);
         }
     }
 }
 
 void drawMinMax(void) {
-    // Draw the pixel that have the MAX value
-    int maxX = 40 + pixelSize * maxPixel[0];
-    int maxY = pixelSize * maxPixel[1];
-    M5.Lcd.fillRect(maxX, maxY, pixelSize, pixelSize, WHITE);
-    M5.Lcd.drawLine(maxX + (pixelSize / 2), maxY + (pixelSize / 2), 280, 5, WHITE);
-    // Draw the pixel that have the MIN value
-    int minX = 40 + pixelSize * minPixel[0];
-    int minY = pixelSize * minPixel[1];
-    M5.Lcd.fillRect(minX, minY, pixelSize, pixelSize, BLUE);
-    M5.Lcd.drawLine(minX + (pixelSize / 2), minY + (pixelSize / 2), 280, 210, BLUE);
+    // Draw the pixel that have the MIN value if pinMin is set to true
+    if (pinMin)
+    {
+        int minX = 40 + pixelSize * minPixel[0];
+        int minY = pixelSize * minPixel[1];
+        M5.Lcd.fillRect(minX, minY, pixelSize, pixelSize, BLUE);
+        M5.Lcd.drawLine(minX + (pixelSize / 2), minY + (pixelSize / 2), 279, 210, BLUE);
+    }
+    // Draw the pixel that have the MAX value if pinMax is set to true
+    if (pinMax)
+    {
+        int maxX = 40 + pixelSize * maxPixel[0];
+        int maxY = pixelSize * maxPixel[1];
+        M5.Lcd.fillRect(maxX, maxY, pixelSize, pixelSize, WHITE);
+        M5.Lcd.drawLine(maxX + (pixelSize / 2), maxY + (pixelSize / 2), 279, 5, WHITE);
+    }
 }
