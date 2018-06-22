@@ -5,18 +5,24 @@ What differ from the original repo:
 - Code refactoring
 - Display the min value
 - Display FPS
-- Autoscaling temperature with B button
+- Autoscaling temperature
 - Move the spot value (in float) to the center
 - Pin point the min and max pixel (min colored in blue and max in white)
 - Auto reboot and reset the i2c port in case of bad connexion
-- (ON HOLD) Add Frozen state (press B button)
+- Add Frozen state
 
 Usage:
-- Press A to increase minimal temperature
-- Long press A to decrease minimal temperature
-- Press B to Autoscale the temperature (take current min/max)
-- Press C to increase maximal temperature
-- Long press C to decrease maximal temperature
+- When in running state:
+  - Press A to increase minimal temperature
+  - Long press A to decrease minimal temperature
+  - Press B to freeze the screen
+  - Press C to increase maximal temperature
+  - Long press C to decrease maximal temperature
+- When in frozen state
+  - Quickly press B again (within 2seconds after initial push in running state) to autoscale (take min/max) and return to live
+  - Press B to unfreeze the screen
+  - Press A to activate/deactivate the pin point of MAX temperature
+  - Press C to activate/deactivate the pin point of MIN temperature
 
 <img style="-webkit-user-select: none;cursor: zoom-in;" src="https://raw.githubusercontent.com/m600x/M5Stack-Thermal-Camera/master/m5stack.jpg" >
 

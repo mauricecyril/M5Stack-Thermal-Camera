@@ -1,16 +1,31 @@
 /***************************************************************************
-    This is a library for the AMG88xx GridEYE 8x8 IR camera
-    This sketch makes an inetrpolated pixel thermal camera with the
-    GridEYE sensor and a 2.4" tft featherwing:
-     https://www.adafruit.com/product/3315
-    Designed specifically to work with the Adafruit AMG8833 Featherwing
-                    https://www.adafruit.com/product/3622
-    These sensors use I2C to communicate. The device's I2C address is 0x69
-    Adafruit invests time and resources providing this open source code,
-    please support Adafruit andopen-source hardware by purchasing products
-    from Adafruit!
-    Written by Dean Miller, James DeVito & ladyada for Adafruit Industries.
-    BSD license, all text above must be included in any redistribution
+    M5Stack Thermal Camera
+    Repo: https://github.com/m600x/M5Stack-Thermal-Camera
+    Forked from: https://github.com/hkoffer/M5Stack-Thermal-Camera-
+
+    Required hardware:
+    - M5Stack
+    - GridEye AMG88xx breakout board
+
+    Required Library:
+    - M5Stack (https://github.com/m5stack/M5Stack)
+    - Adafruit AMG88xx (https://github.com/adafruit/Adafruit_AMG88xx)
+
+    Feature:
+        * Interpolation of the sensor grid from 8x8 to 24x24
+        * Adjustable color scaling
+        * Autoscaling (Double press B)
+        * Pinpoint the minimal and maximal reading (see cold/hot spot)
+        * Display spot, minimal and maximal reading
+        * Display FPS (should be 13 btw)
+        * Frozen state (Press B)
+
+    For instructions, please go to the repo. That header is too long.
+
+    Credit: Adafruit for the original Library
+            Github user hkoffer for the base sketch
+            Me and my dog
+    * Original header moved to the file interpolation.cpp *
  ***************************************************************************/
 
 #include <M5Stack.h>
@@ -52,18 +67,21 @@ Adafruit_AMG88xx amg;
 #define INTERPOLATED_COLS 24
 #define INTERPOLATED_ROWS 24
 
-float arrayRaw[AMG_COLS * AMG_ROWS];
-float arrayInterpolated[INTERPOLATED_ROWS * INTERPOLATED_COLS];
-int minScale = 22;
-int maxScale = 32;
-int valueMax = 0;
-int valueMin = 80;
-int valueSpot = 0;
-int minPixel[] = {0, 0};
-int maxPixel[] = {0, 0};
-boolean onHold = false;
-boolean pinMin = false;
-boolean pinMax = true;
+struct      sensorData
+{
+    float   arrayRaw[AMG_COLS * AMG_ROWS];
+    float   arrayInterpolated[INTERPOLATED_ROWS * INTERPOLATED_COLS];
+    int     minScale = 22;
+    int     maxScale = 32;
+    int     valueMax = 0;
+    int     valueMin = 80;
+    int     minPixel[2] = {0, 0};
+    int     maxPixel[2] = {0, 0};
+    boolean isRunning = true;
+    boolean pinMin = false;
+    boolean pinMax = true;
+    long    lastPress = 0;
+}           sensor;
 
 uint16_t pixelSize = min(M5.Lcd.width() / INTERPOLATED_COLS, M5.Lcd.height() / INTERPOLATED_COLS);
 
@@ -78,7 +96,6 @@ void    interpolate_image(float *src, uint8_t src_rows, uint8_t src_cols, float 
 void setup()
 {
     M5.begin();
-//    M5.setWakeupButton(BUTTON_B_PIN);
     M5.Lcd.begin();
     M5.Lcd.setRotation(1);
     M5.Lcd.setBrightness(255);
@@ -96,14 +113,14 @@ void loop() {
     // 0. Handle buttons usage
     handleButtons();
     // If not in frozen state, get new data
-    if (!onHold)
+    if (sensor.isRunning)
     {
         // 1. Read the sensor
-        amg.readPixels(arrayRaw);
+        amg.readPixels(sensor.arrayRaw);
         // 2. Check for reading error
         errorCheck();
         // 3. Interpolate the image
-        interpolate_image(arrayRaw, AMG_ROWS, AMG_COLS, arrayInterpolated, INTERPOLATED_ROWS, INTERPOLATED_COLS);
+        interpolate_image(sensor.arrayRaw, AMG_ROWS, AMG_COLS, sensor.arrayInterpolated, INTERPOLATED_ROWS, INTERPOLATED_COLS);
         // 4. Check the MIN/MAX values along with position in the interpolated image
         checkValues();
         // 5. Draw the image
@@ -118,14 +135,14 @@ void loop() {
 
 void errorCheck(void) {
     for (int i = 0; i < (AMG_COLS * AMG_ROWS); i++) {
-        if (arrayRaw[i] > 80 || arrayRaw[i] < 0)
+        if (sensor.arrayRaw[i] > 80 || sensor.arrayRaw[i] < 0)
         {
             M5.Lcd.fillScreen(BLACK);
             M5.Lcd.setTextDatum(MC_DATUM);
             M5.Lcd.setTextColor(RED);
             M5.Lcd.drawString("ERROR SENSOR READING", 160, 110);
             M5.Lcd.drawString("Auto reboot in 5 seconds", 160, 130);
-            M5.Lcd.drawString("Array " + String(i) + ":" + String(arrayRaw[i]), 160, 150);
+            M5.Lcd.drawString("Array " + String(i) + ":" + String(sensor.arrayRaw[i]), 160, 150);
             delay(5000);
             esp_sleep_enable_timer_wakeup(1000);
             esp_deep_sleep_start();
@@ -134,63 +151,64 @@ void errorCheck(void) {
 }
 
 void handleButtons(void) {
-//    if (M5.BtnB.pressedFor(1000))
-//    {
-//        onHold = onHold ? false : true;
-//        return ;
-//    }
-    if (M5.BtnB.wasPressed())
+    long btnReading = M5.BtnB.lastChange();
+    if (sensor.isRunning)
     {
-        minScale = valueMin;
-        maxScale = valueMax;
-        drawScaleValues();
-        return ;
-    }
-    // Active only if the screen is not in frozen state
-    if (!onHold)
-    {
+        if (M5.BtnB.wasPressed())
+            sensor.isRunning = false;
         // Save the current value
-        int prevMinScale = minScale;
-        int prevMaxScale = maxScale;
+        int prevMinScale = sensor.minScale;
+        int prevMaxScale = sensor.maxScale;
         // Press A to increase MIN temp scale
         if (M5.BtnA.wasPressed())
-            minScale = (minScale < maxScale - 1) ? (minScale + 1) : minScale;
+            sensor.minScale = (sensor.minScale < sensor.maxScale - 1) ? (sensor.minScale + 1) : sensor.minScale;
         // Long press A to decrease MIN temp scale
         if (M5.BtnA.pressedFor(1000))
-            minScale = (minScale > 0) ? (minScale - 1) : minScale;
+            sensor.minScale = (sensor.minScale > 0) ? (sensor.minScale - 1) : sensor.minScale;
         // Press B to increase MAX temp scale
         if (M5.BtnC.wasPressed())
-            maxScale = (maxScale < 80) ? (maxScale + 1) : maxScale;
+            sensor.maxScale = (sensor.maxScale < 80) ? (sensor.maxScale + 1) : sensor.maxScale;
         // Long press B to decrease MAX temp scale
         if (M5.BtnC.pressedFor(1000))
-            maxScale = (maxScale > minScale + 1) ? (maxScale - 1) : maxScale;
+            sensor.maxScale = (sensor.maxScale > sensor.minScale + 1) ? (sensor.maxScale - 1) : sensor.maxScale;
         // Check for modified values to redraw the scale
-        if (prevMinScale != minScale || prevMaxScale != maxScale)
+        if (prevMinScale != sensor.minScale || prevMaxScale != sensor.maxScale)
             drawScaleValues();
     }
     else
     {
+        if (M5.BtnB.wasPressed())
+        {
+            if (btnReading - sensor.lastPress < 1000)
+            {
+                sensor.minScale = sensor.valueMin;
+                sensor.maxScale = sensor.valueMax;
+                drawScaleValues();
+            }
+            sensor.isRunning = true;
+        }
         if (M5.BtnA.wasPressed())
         {
-            pinMin = pinMin ? false : true;
+            sensor.pinMin = sensor.pinMin ? false : true;
             drawImage();
             drawMinMax();
         }
         if (M5.BtnC.wasPressed())
         {
-            pinMax = pinMax ? false : true;
+            sensor.pinMax = sensor.pinMax ? false : true;
             drawImage();
             drawMinMax();
         }
     }
-
+    if (M5.BtnB.wasPressed())
+        sensor.lastPress = btnReading;
 }
 
 void drawScaleValues(void) {
     M5.Lcd.fillRect(0, 225, 36, 16, BLACK);
     M5.Lcd.fillRect(0, 0, 36, 16, BLACK);
-    M5.Lcd.drawString(String(minScale) + "C", 0, 225);
-    M5.Lcd.drawString(String(maxScale) + "C", 0, 1);
+    M5.Lcd.drawString(String(sensor.minScale) + "C", 0, 225);
+    M5.Lcd.drawString(String(sensor.maxScale) + "C", 0, 1);
     M5.Lcd.setTextColor(DARKGREY);
     M5.Lcd.drawString("MAX", 284, 18);
     M5.Lcd.drawString("FPS", 284, 104);
@@ -207,12 +225,12 @@ void drawScale() {
 void drawData(long startTime) {
     // Min value
     M5.Lcd.fillRect(280, 225, 40, 15, BLACK);
-    M5.Lcd.drawString(String(valueMin) + "C", 284, 225);
+    M5.Lcd.drawString(String(sensor.valueMin) + "C", 284, 225);
     // Max value
     M5.Lcd.fillRect(280, 0, 40, 15, BLACK);
-    M5.Lcd.drawString(String(valueMax) + "C", 284, 0);
+    M5.Lcd.drawString(String(sensor.valueMax) + "C", 284, 0);
     // Spot value
-    M5.Lcd.drawString(String(arrayRaw[28]), 130, 135);
+    M5.Lcd.drawString(String(sensor.arrayRaw[28]), 130, 135);
     // Draw center spot over the image
     M5.Lcd.drawCircle(160, 120, 6, TFT_WHITE);
     M5.Lcd.drawLine(160, 110, 160, 130, TFT_WHITE);
@@ -225,24 +243,24 @@ void drawData(long startTime) {
 
 void checkValues() {
     // Reset min and max value
-    valueMax = INT_MIN;
-    valueMin = INT_MAX;
+    sensor.valueMax = INT_MIN;
+    sensor.valueMin = INT_MAX;
     for (int y = 0; y < INTERPOLATED_ROWS; y++) {
         for (int x = 0; x < INTERPOLATED_COLS; x++) {
-            int pixel = (int) get_point(arrayInterpolated, INTERPOLATED_ROWS, INTERPOLATED_COLS, x, y);
+            int pixel = (int) get_point(sensor.arrayInterpolated, INTERPOLATED_ROWS, INTERPOLATED_COLS, x, y);
             // Save the max value and keep the coordinate of the pixel
-            if (pixel > valueMax)
+            if (pixel > sensor.valueMax)
             {
-                valueMax = pixel;
-                maxPixel[0] = x;
-                maxPixel[1] = y;
+                sensor.valueMax = pixel;
+                sensor.maxPixel[0] = x;
+                sensor.maxPixel[1] = y;
             }
             // Save the min value and keep the coordinate of the pixel
-            if (pixel < valueMin)
+            if (pixel < sensor.valueMin)
             {
-                valueMin = pixel;
-                minPixel[0] = x;
-                minPixel[1] = y;
+                sensor.valueMin = pixel;
+                sensor.minPixel[0] = x;
+                sensor.minPixel[1] = y;
             }
         }
     }
@@ -252,9 +270,9 @@ void drawImage(void) {
     // Draw the image from arrayInterpolated using color from camColors
     for (int y = 0; y < INTERPOLATED_ROWS; y++) {
         for (int x = 0; x < INTERPOLATED_COLS; x++) {
-            float pixel = get_point(arrayInterpolated, INTERPOLATED_ROWS, INTERPOLATED_COLS, x, y);
-            pixel = (pixel >= maxScale) ? maxScale : (pixel <= minScale) ? minScale : pixel;
-            uint8_t colorIndex = constrain(map((int)pixel, minScale, maxScale, 0, 255), 0, 255);
+            float pixel = get_point(sensor.arrayInterpolated, INTERPOLATED_ROWS, INTERPOLATED_COLS, x, y);
+            pixel = (pixel >= sensor.maxScale) ? sensor.maxScale : (pixel <= sensor.minScale) ? sensor.minScale : pixel;
+            uint8_t colorIndex = constrain(map((int)pixel, sensor.minScale, sensor.maxScale, 0, 255), 0, 255);
             M5.Lcd.fillRect(40 + pixelSize * x, pixelSize * y, pixelSize, pixelSize, camColors[colorIndex]);
         }
     }
@@ -262,18 +280,18 @@ void drawImage(void) {
 
 void drawMinMax(void) {
     // Draw the pixel that have the MIN value if pinMin is set to true
-    if (pinMin)
+    if (sensor.pinMin)
     {
-        int minX = 40 + pixelSize * minPixel[0];
-        int minY = pixelSize * minPixel[1];
+        int minX = 40 + pixelSize * sensor.minPixel[0];
+        int minY = pixelSize * sensor.minPixel[1];
         M5.Lcd.fillRect(minX, minY, pixelSize, pixelSize, BLUE);
         M5.Lcd.drawLine(minX + (pixelSize / 2), minY + (pixelSize / 2), 279, 210, BLUE);
     }
     // Draw the pixel that have the MAX value if pinMax is set to true
-    if (pinMax)
+    if (sensor.pinMax)
     {
-        int maxX = 40 + pixelSize * maxPixel[0];
-        int maxY = pixelSize * maxPixel[1];
+        int maxX = 40 + pixelSize * sensor.maxPixel[0];
+        int maxY = pixelSize * sensor.maxPixel[1];
         M5.Lcd.fillRect(maxX, maxY, pixelSize, pixelSize, WHITE);
         M5.Lcd.drawLine(maxX + (pixelSize / 2), maxY + (pixelSize / 2), 279, 5, WHITE);
     }
