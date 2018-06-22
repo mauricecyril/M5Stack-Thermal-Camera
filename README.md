@@ -23,6 +23,12 @@ Usage:
   - Press B to unfreeze the screen
   - Press A to activate/deactivate the pin point of MAX temperature
   - Press C to activate/deactivate the pin point of MIN temperature
+  
+Might do (eventually):
+- Save to SD (maybe save the buffer as bmp then display it and let the choice to save when on frozen state)
+- Add sensor reading as overlay with low alpha over a real camera feed (need to compensate the angle)
+- Web interface (yes, it's useless but I like remote control of crap)
+- API REST of the raw values (because why not)
 
 <img style="-webkit-user-select: none;cursor: zoom-in;" src="https://raw.githubusercontent.com/m600x/M5Stack-Thermal-Camera/master/m5stack.jpg" >
 
