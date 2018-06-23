@@ -1,8 +1,9 @@
-# M5Stack-Thermal-Camera
+# M5Stack Thermal Camera
 forked from hkoffer https://github.com/hkoffer/M5Stack-Thermal-Camera-
 
 What differ from the original repo:
 - Code refactoring
+- UX revamped
 - Display the min value
 - Display FPS
 - Autoscaling temperature
@@ -12,19 +13,28 @@ What differ from the original repo:
 - Add Frozen state
 
 Usage:
-- When in running state:
-  - Press A to increase minimal temperature
-  - Long press A to decrease minimal temperature
-  - Press B to freeze the screen
-  - Press C to increase maximal temperature
-  - Long press C to decrease maximal temperature
-- When in frozen state
-  - Quickly press B again (within 2seconds after initial push in running state) to autoscale (take min/max) and return to live
-  - Press B to unfreeze the screen
-  - Press A to activate/deactivate the pin point of MAX temperature
-  - Press C to activate/deactivate the pin point of MIN temperature
+Menu cycle with button A
+- MODE:
+  - Button B: Autoscaling (take current min/max)
+  - Button C: Freeze the screen
+- SMIN:
+  - Button B: Reduce the minimal temp of the scale
+  - Button C: Increase the minimal temp of the scale
+- SMAX:
+  - Button B: Reduce the maximal temp of the scale
+  - Button C: Increase the maximal temp of the scale
+- POINT:
+  - Button B: Activate/Deactivate the pinpoint of the minimal reading
+  - Button C: Activate/Deactivate the pinpoint of the maximal reading
+
+- When in frozen state:
+  - Button A: Turn off the camera
+  - Button B: Nothing
+  - Button C: Unfreeze the camera
 
 <img style="-webkit-user-select: none;cursor: zoom-in;" src="https://raw.githubusercontent.com/m600x/M5Stack-Thermal-Camera/master/m5stack.jpg" >
+
+---
 
 This is a library for the Adafruit AMG88xx based thermal cameras:
 Adafruit invests time and resources providing this open source code, please support Adafruit and open-source hardware by purchasing products from Adafruit!

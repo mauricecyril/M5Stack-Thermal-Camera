@@ -66,6 +66,11 @@ Adafruit_AMG88xx amg;
 #define AMG_ROWS 8
 #define INTERPOLATED_COLS 24
 #define INTERPOLATED_ROWS 24
+#define MENU_0 "MODE  SCALE  FREEZE"
+#define MENU_1 "SMIN      -       +"
+#define MENU_2 "SMAX      -       +"
+#define MENU_3 "POINT    MIN    MAX"
+#define MENU_F "OFF        UNFREEZE"
 
 struct      sensorData
 {
@@ -79,8 +84,9 @@ struct      sensorData
     int     maxPixel[2] = {0, 0};
     boolean isRunning = true;
     boolean pinMin = false;
-    boolean pinMax = true;
+    boolean pinMax = false;
     long    lastPress = 0;
+    int     menuState = 0;
 }           sensor;
 
 uint16_t pixelSize = min(M5.Lcd.width() / INTERPOLATED_COLS, M5.Lcd.height() / INTERPOLATED_COLS);
@@ -99,6 +105,7 @@ void setup()
     M5.Lcd.begin();
     M5.Lcd.setRotation(1);
     M5.Lcd.setBrightness(255);
+    M5.setWakeupButton(BUTTON_A_PIN);
     M5.Lcd.fillScreen(BLACK);
     M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextSize(2);
@@ -111,7 +118,7 @@ void setup()
 void loop() {
     long start = millis();
     // 0. Handle buttons usage
-    handleButtons();
+    menu();
     // If not in frozen state, get new data
     if (sensor.isRunning)
     {
@@ -129,8 +136,93 @@ void loop() {
         drawMinMax();
         // 7. Draw the reading and fps
         drawData(start);
+        // 8. Draw menu
+        drawMenu();
     }
     M5.update();
+}
+
+void menu(void)
+{
+    if (sensor.isRunning && (M5.BtnA.wasPressed() || M5.BtnB.wasPressed() || M5.BtnC.wasPressed()))
+    {
+        if (M5.BtnA.wasPressed())
+            sensor.menuState++;
+        if (sensor.menuState > 3)
+            sensor.menuState = 0;
+        switch (sensor.menuState) {
+            case 1:
+                if (M5.BtnB.wasPressed())
+                    sensor.minScale = (sensor.minScale > 0) ? (sensor.minScale - 1) : sensor.minScale;
+                if (M5.BtnC.wasPressed())
+                    sensor.minScale = (sensor.minScale < sensor.maxScale - 1) ? (sensor.minScale + 1) : sensor.minScale;
+                break;
+            case 2:
+                if (M5.BtnB.wasPressed())
+                    sensor.maxScale = (sensor.maxScale > sensor.minScale + 1) ? (sensor.maxScale - 1) : sensor.maxScale;
+                if (M5.BtnC.wasPressed())
+                    sensor.maxScale = (sensor.maxScale < 80) ? (sensor.maxScale + 1) : sensor.maxScale;
+                break;
+            case 3:
+                if (M5.BtnB.wasPressed())
+                    sensor.pinMin = sensor.pinMin ? false : true;
+                if (M5.BtnC.wasPressed())
+                    sensor.pinMax = sensor.pinMax ? false : true;
+                break;
+            default:
+                if (M5.BtnB.wasPressed())
+                {
+                    sensor.minScale = sensor.valueMin;
+                    sensor.maxScale = sensor.valueMax;
+                }
+                if (M5.BtnC.wasPressed())
+                {
+                    sensor.isRunning = false;
+                    M5.Lcd.fillRect(40, 220, 240, 240, BLACK);
+                    drawMenu();
+                }
+                return ;
+                break;
+        }
+        drawScaleValues();
+    }
+    else if (!sensor.isRunning)
+    {
+        if (M5.BtnC.wasPressed())
+        {
+            sensor.isRunning = true;
+        }
+        if (M5.BtnA.wasPressed())
+        {
+            M5.powerOFF();
+        }
+    }
+}
+
+void drawMenu() {
+    M5.Lcd.setTextDatum(MC_DATUM);
+    if (!sensor.isRunning)
+    {
+        M5.Lcd.drawString(MENU_F, 160, 232);
+    }
+    else
+    {
+        switch (sensor.menuState) {
+            case 1:
+                M5.Lcd.drawString(MENU_1, 160, 232);
+                break;
+            case 2:
+                M5.Lcd.drawString(MENU_2, 160, 232);
+                break;
+            case 3:
+                M5.Lcd.drawString(MENU_3, 160, 232);
+                break;
+            default:
+                M5.Lcd.drawString(MENU_0, 160, 232);
+                break;
+        }
+    }
+    M5.Lcd.setTextDatum(TL_DATUM);
 }
 
 void errorCheck(void) {
@@ -148,60 +240,6 @@ void errorCheck(void) {
             esp_deep_sleep_start();
         }
     }
-}
-
-void handleButtons(void) {
-    long btnReading = M5.BtnB.lastChange();
-    if (sensor.isRunning)
-    {
-        if (M5.BtnB.wasPressed())
-            sensor.isRunning = false;
-        // Save the current value
-        int prevMinScale = sensor.minScale;
-        int prevMaxScale = sensor.maxScale;
-        // Press A to increase MIN temp scale
-        if (M5.BtnA.wasPressed())
-            sensor.minScale = (sensor.minScale < sensor.maxScale - 1) ? (sensor.minScale + 1) : sensor.minScale;
-        // Long press A to decrease MIN temp scale
-        if (M5.BtnA.pressedFor(1000))
-            sensor.minScale = (sensor.minScale > 0) ? (sensor.minScale - 1) : sensor.minScale;
-        // Press B to increase MAX temp scale
-        if (M5.BtnC.wasPressed())
-            sensor.maxScale = (sensor.maxScale < 80) ? (sensor.maxScale + 1) : sensor.maxScale;
-        // Long press B to decrease MAX temp scale
-        if (M5.BtnC.pressedFor(1000))
-            sensor.maxScale = (sensor.maxScale > sensor.minScale + 1) ? (sensor.maxScale - 1) : sensor.maxScale;
-        // Check for modified values to redraw the scale
-        if (prevMinScale != sensor.minScale || prevMaxScale != sensor.maxScale)
-            drawScaleValues();
-    }
-    else
-    {
-        if (M5.BtnB.wasPressed())
-        {
-            if (btnReading - sensor.lastPress < 1000)
-            {
-                sensor.minScale = sensor.valueMin;
-                sensor.maxScale = sensor.valueMax;
-                drawScaleValues();
-            }
-            sensor.isRunning = true;
-        }
-        if (M5.BtnA.wasPressed())
-        {
-            sensor.pinMin = sensor.pinMin ? false : true;
-            drawImage();
-            drawMinMax();
-        }
-        if (M5.BtnC.wasPressed())
-        {
-            sensor.pinMax = sensor.pinMax ? false : true;
-            drawImage();
-            drawMinMax();
-        }
-    }
-    if (M5.BtnB.wasPressed())
-        sensor.lastPress = btnReading;
 }
 
 void drawScaleValues(void) {
