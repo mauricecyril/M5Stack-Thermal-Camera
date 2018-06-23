@@ -13,30 +13,32 @@ What differ from the original repo:
 - Add Frozen state
 
 Usage:
-Menu cycle with button A
-- MODE:
-  - Button B: Autoscaling (take current min/max)
-  - Button C: Freeze the screen
-- SMIN:
-  - Button B: Reduce the minimal temp of the scale
-  - Button C: Increase the minimal temp of the scale
-- SMAX:
-  - Button B: Reduce the maximal temp of the scale
-  - Button C: Increase the maximal temp of the scale
-- POINT:
-  - Button B: Activate/Deactivate the pinpoint of the minimal reading
-  - Button C: Activate/Deactivate the pinpoint of the maximal reading
 
-- When in frozen state:
-  - Button A: Turn off the camera
-  - Button B: Nothing
-  - Button C: Unfreeze the camera
+| Mode | Button | Function |
+|---|---|---|
+|MODE|<kbd>  B  </kbd>|Autoscaling (take current min/max)|
+||<kbd>C</kbd>|Freeze the screen|
+|SMIN|<kbd>B</kbd>|Reduce the minimal temp of the scale|
+||<kbd>C</kbd>|Increase the minimal temp of the scale|
+|SMAX|<kbd>B</kbd>|Reduce the maximal temp of the scale|
+||<kbd>C</kbd>|Increase the maximal temp of the scale|
+|POINT|<kbd>B</kbd>|Activate/Deactivate the pinpoint of the minimal reading|
+||<kbd>C</kbd>|Activate/Deactivate the pinpoint of the maximal reading|
 
-  Might do (eventually):
-  - Save to SD (maybe save the buffer as bmp then display it and let the choice to save when on frozen state)
-  - Add sensor reading as overlay with low alpha over a real camera feed (need to compensate the angle)
-  - Web interface (yes, it's useless but I like remote control of crap)
-  - API REST of the raw values (because why not)
+When in frozen state:
+
+|Button|Function|
+|---|---|
+|<kbd>A</kbd>|Turn OFF the camera (Also turn back ON)|
+|<kbd>B</kbd>|Nothing|
+|<kbd>C</kbd>|Unfreeze the camera|
+
+
+Might do (eventually):
+- Save to SD (maybe save the buffer as bmp then display it and let the choice to save when on frozen state)
+- Add sensor reading as overlay with low alpha over a real camera feed (need to compensate the angle)
+- Web interface (yes, it's useless but I like remote control of crap)
+- API REST of the raw values (because why not)
 
 <img style="-webkit-user-select: none;cursor: zoom-in;" src="https://raw.githubusercontent.com/m600x/M5Stack-Thermal-Camera/master/m5stack.jpg" >
 
