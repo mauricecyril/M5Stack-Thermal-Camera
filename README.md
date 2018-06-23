@@ -10,9 +10,12 @@ What differ from the original repo:
 - Move the spot value (in float) to the center
 - Pin point the min and max pixel (min colored in blue and max in white)
 - Auto reboot and reset the i2c port in case of bad connexion
-- Add Frozen state
+- Add frozen state
+- Add sleep function (default to 5mins)
 
 Usage:
+
+If no buttons is used after the set period (5mins by default) the unit will power off automatically.
 
 | Mode | Button | Function |
 |---|---|---|
