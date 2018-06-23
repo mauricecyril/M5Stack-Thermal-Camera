@@ -66,11 +66,11 @@ Adafruit_AMG88xx amg;
 #define AMG_ROWS 8
 #define INTERPOLATED_COLS 24
 #define INTERPOLATED_ROWS 24
-#define MENU_0 "MODE  SCALE  FREEZE"
-#define MENU_1 "SMIN      -       +"
-#define MENU_2 "SMAX      -       +"
-#define MENU_3 "POINT    MIN    MAX"
-#define MENU_F "OFF        UNFREEZE"
+String M0[] = {"MODE", "SCALE", "PAUSE"};
+String M1[] = {"SMIN", "-", "+"};
+String M2[] = {"SMAX", "-", "+"};
+String M3[] = {"POINT", "MIN", "MAX"};
+String MF[] = {"OFF", " ", "START"};
 
 struct      sensorData
 {
@@ -189,39 +189,38 @@ void menu(void)
     else if (!sensor.isRunning)
     {
         if (M5.BtnC.wasPressed())
-        {
             sensor.isRunning = true;
-        }
         if (M5.BtnA.wasPressed())
-        {
             M5.powerOFF();
-        }
     }
 }
 
 void drawMenu() {
     M5.Lcd.setTextDatum(MC_DATUM);
-    if (!sensor.isRunning)
-    {
-        M5.Lcd.drawString(MENU_F, 160, 232);
-    }
-    else
+    M5.Lcd.setTextColor(DARKGREY);
+    M5.Lcd.fillRect(40, 220, 240, 20, BLACK);
+    String *menu = MF;
+    if (sensor.isRunning)
     {
         switch (sensor.menuState) {
             case 1:
-                M5.Lcd.drawString(MENU_1, 160, 232);
+                menu = M1;
                 break;
             case 2:
-                M5.Lcd.drawString(MENU_2, 160, 232);
+                menu = M2;
                 break;
             case 3:
-                M5.Lcd.drawString(MENU_3, 160, 232);
+                menu = M3;
                 break;
             default:
-                M5.Lcd.drawString(MENU_0, 160, 232);
+                menu = M0;
                 break;
         }
     }
+    M5.Lcd.drawString(menu[0], 75, 232);
+    M5.Lcd.drawString(menu[1], 160, 232);
+    M5.Lcd.drawString(menu[2], 245, 232);
+    M5.Lcd.setTextColor(WHITE);
     M5.Lcd.setTextDatum(TL_DATUM);
 }
 
@@ -232,12 +231,28 @@ void errorCheck(void) {
             M5.Lcd.fillScreen(BLACK);
             M5.Lcd.setTextDatum(MC_DATUM);
             M5.Lcd.setTextColor(RED);
-            M5.Lcd.drawString("ERROR SENSOR READING", 160, 110);
-            M5.Lcd.drawString("Auto reboot in 5 seconds", 160, 130);
-            M5.Lcd.drawString("Array " + String(i) + ":" + String(sensor.arrayRaw[i]), 160, 150);
-            delay(5000);
-            esp_sleep_enable_timer_wakeup(1000);
-            esp_deep_sleep_start();
+            M5.Lcd.drawString("ERROR SENSOR READING", 160, 20);
+            M5.Lcd.drawString("PRESS TO REBOOT", 160, 232);
+
+            M5.Lcd.setTextSize(1);
+            String dump = "";
+            for (int y = 0; y < 8; y++) {
+                dump = "";
+                for (int x = 0; x < 8; x++) {
+                    dump = dump + String((int)sensor.arrayRaw[x + y]) + " ";
+                }
+                M5.Lcd.drawString(dump, 150, 80 + (y * 15));
+            }
+            while (1)
+            {
+                if (M5.BtnA.wasPressed() || M5.BtnB.wasPressed() || M5.BtnC.wasPressed())
+                {
+                    esp_sleep_enable_timer_wakeup(1);
+                    esp_deep_sleep_start();
+                }
+                M5.update();
+                delay (10);
+            }
         }
     }
 }
@@ -276,7 +291,7 @@ void drawData(long startTime) {
     // FPS value
     M5.Lcd.fillRect(280, 86, 40, 15, BLACK);
     M5.Lcd.drawString(String(1000 / (int)(millis() - startTime)), 288, 86);
-
+    
 }
 
 void checkValues() {
@@ -311,7 +326,8 @@ void drawImage(void) {
             float pixel = get_point(sensor.arrayInterpolated, INTERPOLATED_ROWS, INTERPOLATED_COLS, x, y);
             pixel = (pixel >= sensor.maxScale) ? sensor.maxScale : (pixel <= sensor.minScale) ? sensor.minScale : pixel;
             uint8_t colorIndex = constrain(map((int)pixel, sensor.minScale, sensor.maxScale, 0, 255), 0, 255);
-            M5.Lcd.fillRect(40 + pixelSize * x, pixelSize * y, pixelSize, pixelSize, camColors[colorIndex]);
+            if ((pixelSize * y) < 220)
+                M5.Lcd.fillRect(40 + pixelSize * x, pixelSize * y, pixelSize, pixelSize, camColors[colorIndex]);
         }
     }
 }
@@ -322,6 +338,8 @@ void drawMinMax(void) {
     {
         int minX = 40 + pixelSize * sensor.minPixel[0];
         int minY = pixelSize * sensor.minPixel[1];
+        if (minY < 220)
+            minY -= pixelSize;
         M5.Lcd.fillRect(minX, minY, pixelSize, pixelSize, BLUE);
         M5.Lcd.drawLine(minX + (pixelSize / 2), minY + (pixelSize / 2), 279, 210, BLUE);
     }
@@ -330,6 +348,8 @@ void drawMinMax(void) {
     {
         int maxX = 40 + pixelSize * sensor.maxPixel[0];
         int maxY = pixelSize * sensor.maxPixel[1];
+        if (maxY < 220)
+            maxY -= pixelSize;
         M5.Lcd.fillRect(maxX, maxY, pixelSize, pixelSize, WHITE);
         M5.Lcd.drawLine(maxX + (pixelSize / 2), maxY + (pixelSize / 2), 279, 5, WHITE);
     }
