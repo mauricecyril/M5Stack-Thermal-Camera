@@ -180,8 +180,8 @@ void menu(void)
                     sensor.isRunning = false;
                     M5.Lcd.fillRect(40, 220, 240, 240, BLACK);
                     drawMenu();
+                    return ;
                 }
-                return ;
                 break;
         }
         drawScaleValues();
