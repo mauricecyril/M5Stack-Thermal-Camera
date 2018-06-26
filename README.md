@@ -13,6 +13,16 @@ What differ from the original repo:
 - Add frozen state
 - Add sleep function (default to 5mins)
 
+Onboarding:
+
+Please change the settings in the file M5Stack/M5Stack.ino if something is wrong (especially the orientation), explaination are in the file.
+
+* `#define ORIENTATION         1`
+* `#define BRIGHTNESS          255`
+* `#define SLEEP               5`
+* `#define DEFAULT_MIN         22`
+* `#define DEFAULT_MAX         32`
+
 Usage:
 
 If no buttons is used after the set period (5mins by default) the unit will power off automatically.
