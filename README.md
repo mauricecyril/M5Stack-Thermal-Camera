@@ -1,7 +1,7 @@
 # M5Stack Thermal Camera
 forked from hkoffer https://github.com/hkoffer/M5Stack-Thermal-Camera-
 
-What differ from the original repo:
+## What differ from the original repo
 - Code refactoring
 - UX revamped
 - Display the min value
@@ -10,27 +10,32 @@ What differ from the original repo:
 - Move the spot value (in float) to the center
 - Pin point the min and max pixel (min colored in blue and max in white)
 - Auto reboot and reset the i2c port in case of bad connexion
-- Add frozen state
-- Add sleep function (default to 5mins)
+- Pause state
+- Autosleep function
 
-Onboarding:
+## Onboarding
+### Required library
+  - [M5Stack](https://github.com/m5stack/M5Stack)
+  - [Adafruit AMG88xx](https://github.com/adafruit/Adafruit_AMG88xx)
 
-Please change the settings in the file M5Stack/M5Stack.ino if something is wrong (especially the orientation), explaination are in the file.
+### Settings
+Please change the settings in the file M5Stack/M5Stack.ino if something is wrong (especially the orientation).
 
-* `#define ORIENTATION         1`
-* `#define BRIGHTNESS          255`
-* `#define SLEEP               5`
-* `#define DEFAULT_MIN         22`
-* `#define DEFAULT_MAX         32`
+| Setting | Default | |
+|---|---|---|
+|ORIENTATION|1|Set the orientation of the screen.|
+|BRIGHTNESS|255|Brightness level from 0 to 255|
+|SLEEP|5|Time in minutes before quto turn off|
+|DEFAULT_MIN|22|Minimal temperature scale at boot|
+|DEFAULT_MAX|32|Maximal temperature scale at boot|
 
-Usage:
-
+## Usage
 If no buttons is used after the set period (5mins by default) the unit will power off automatically.
 
 | Mode | Button | Function |
 |---|---|---|
 |MODE|<kbd>  B  </kbd>|Autoscaling (take current min/max)|
-||<kbd>C</kbd>|Freeze the screen|
+||<kbd>C</kbd>|Pause the screen|
 |SMIN|<kbd>B</kbd>|Reduce the minimal temp of the scale|
 ||<kbd>C</kbd>|Increase the minimal temp of the scale|
 |SMAX|<kbd>B</kbd>|Reduce the maximal temp of the scale|
@@ -46,8 +51,7 @@ When in frozen state:
 |<kbd>B</kbd>|Nothing|
 |<kbd>C</kbd>|Unfreeze the camera|
 
-
-Might do (eventually):
+## Might do (eventually)
 - Save to SD (maybe save the buffer as bmp then display it and let the choice to save when on frozen state)
 - Add sensor reading as overlay with low alpha over a real camera feed (need to compensate the angle)
 - Web interface (yes, it's useless but I like remote control of crap)
