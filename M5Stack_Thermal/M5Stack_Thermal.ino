@@ -36,11 +36,17 @@
 /***************************************************************************
     USER SETTINGS
 
+    ORIENTATION  : Change the orientation to 90degrees. Depend on M5Stack
+                   batch, mine is 1 other have 0, so change it to 0 if the
+                   orientation is wrong on yours (Default: 1)
+    BRIGHTNESS   : Self explainatory, range is from 0 to 255 (Default: 255)
     SLEEP        : Time before going turning off - in minute (Default: 5)
     DEFAULT_MIN  : Default value of min scale (Default: 22)
     DEFAULT_MAX  : Default value of max scale (Default: 32)
  ***************************************************************************/
 
+#define ORIENTATION         1
+#define BRIGHTNESS          255
 #define SLEEP               5
 #define DEFAULT_MIN         22
 #define DEFAULT_MAX         32
@@ -122,8 +128,8 @@ void setup()
 {
     M5.begin();
     M5.Lcd.begin();
-    M5.Lcd.setRotation(1);
-    M5.Lcd.setBrightness(255);
+    M5.Lcd.setRotation(ORIENTATION);
+    M5.Lcd.setBrightness(BRIGHTNESS);
     M5.setWakeupButton(BUTTON_A_PIN);
     M5.Lcd.fillScreen(BLACK);
     M5.Lcd.setTextColor(WHITE);
