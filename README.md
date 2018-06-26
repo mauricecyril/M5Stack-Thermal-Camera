@@ -30,7 +30,7 @@ Please change the settings in the file M5Stack/M5Stack.ino if something is wrong
 
 | Setting | Default | |
 |:-:|:-:|---|
-|`ORIENTATION`|1|Set the orientation of the screen.|
+|`ORIENTATION`|1|Set the orientation of the screen<br>Some batch of M5Stack need it `1` while some other need `0`|
 |`BRIGHTNESS`|255|Brightness level from 0 to 255|
 |`SLEEP`|5|Time in minutes before auto turn off|
 |`DEFAULT_MIN`|22|Minimal temperature scale at boot|
