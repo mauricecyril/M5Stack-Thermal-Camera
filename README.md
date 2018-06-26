@@ -22,18 +22,18 @@ forked from hkoffer https://github.com/hkoffer/M5Stack-Thermal-Camera-
 Please change the settings in the file M5Stack/M5Stack.ino if something is wrong (especially the orientation).
 
 | Setting | Default | |
-|---|---|---|
-|ORIENTATION|1|Set the orientation of the screen.|
-|BRIGHTNESS|255|Brightness level from 0 to 255|
-|SLEEP|5|Time in minutes before quto turn off|
-|DEFAULT_MIN|22|Minimal temperature scale at boot|
-|DEFAULT_MAX|32|Maximal temperature scale at boot|
+|:-:|:-:|---|
+|`ORIENTATION`|1|Set the orientation of the screen.|
+|`BRIGHTNESS`|255|Brightness level from 0 to 255|
+|`SLEEP`|5|Time in minutes before auto turn off|
+|`DEFAULT_MIN`|22|Minimal temperature scale at boot|
+|`DEFAULT_MAX`|32|Maximal temperature scale at boot|
 
 ## Usage
 If no buttons is used after the set period (5mins by default) the unit will power off automatically.
 
 | Mode | Button | Function |
-|---|---|---|
+|---|:-:|---|
 |MODE|<kbd>  B  </kbd>|Autoscaling (take current min/max)|
 ||<kbd>C</kbd>|Pause the screen|
 |SMIN|<kbd>B</kbd>|Reduce the minimal temp of the scale|
@@ -46,7 +46,7 @@ If no buttons is used after the set period (5mins by default) the unit will powe
 When in frozen state:
 
 |Button|Function|
-|---|---|
+|:-:|---|
 |<kbd>A</kbd>|Turn OFF the camera (Also turn back ON)|
 |<kbd>B</kbd>|Nothing|
 |<kbd>C</kbd>|Unfreeze the camera|
@@ -57,6 +57,8 @@ When in frozen state:
 - Web interface (yes, it's useless but I like remote control of crap)
 - API REST of the raw values (because why not)
 
+---
+(outdated picture but you get an idea of what it does)
 <img style="-webkit-user-select: none;cursor: zoom-in;" src="https://raw.githubusercontent.com/m600x/M5Stack-Thermal-Camera/master/m5stack.jpg" >
 
 ---
