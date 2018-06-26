@@ -1,12 +1,15 @@
 # M5Stack Thermal Camera
 forked from hkoffer https://github.com/hkoffer/M5Stack-Thermal-Camera-
 
+Latest revision: **20180626**
+
 * [What differ from the original repo](#what-differ-from-the-original-repo)
 * [Onboarding](#onboarding)
   + [Required library](#required-library)
   + [Settings](#settings)
 * [Usage](#usage)
 * [Might do (eventually)](#might-do-eventually)
+* [Changelog](#changelog)
 
 ## What differ from the original repo
 - Code refactoring
@@ -63,6 +66,9 @@ When in frozen state:
 - Add sensor reading as overlay with low alpha over a real camera feed (need to compensate the angle)
 - Web interface (yes, it's useless but I like remote control of crap)
 - API REST of the raw values (because why not)
+
+## Changelog
+20180626 : Init.
 
 ---
 (outdated picture but you get an idea of what it does)
