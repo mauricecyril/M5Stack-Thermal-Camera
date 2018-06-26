@@ -158,7 +158,7 @@ void setup()
 */
 void loop() {
     long start = millis();
-    if (millis() / 60000 > sensor.sleepTime + SLEEP)
+    if (millis() / 60000 > sensor.sleepTime + ((SLEEP > 0) ? SLEEP : 5))
         M5.powerOFF();
     menu();
     if (sensor.isRunning)
