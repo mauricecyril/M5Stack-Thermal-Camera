@@ -1,6 +1,13 @@
 # M5Stack Thermal Camera
 forked from hkoffer https://github.com/hkoffer/M5Stack-Thermal-Camera-
 
+* [What differ from the original repo](#what-differ-from-the-original-repo)
+* [Onboarding](#onboarding)
+  + [Required library](#required-library)
+  + [Settings](#settings)
+* [Usage](#usage)
+* [Might do (eventually)](#might-do-eventually)
+
 ## What differ from the original repo
 - Code refactoring
 - UX revamped
