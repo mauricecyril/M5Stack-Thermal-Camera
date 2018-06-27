@@ -12,7 +12,7 @@ Latest revision: **20180626**
 * [Changelog](#changelog)
 
 ## What differ from the original repo
-- Code refactoring
+- Code refactoring (pretty much everything)
 - UX revamped
 - Display the min value
 - Display FPS
