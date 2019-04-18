@@ -30,6 +30,7 @@
 
 #include <M5Stack.h>
 #include <SPI.h>
+// #include <SdFat.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_AMG88xx.h>
@@ -113,6 +114,7 @@ const uint16_t camColors[] = {
 
 Adafruit_AMG88xx amg;
 uint16_t pixelSize = min(M5.Lcd.width() / INT_COLS, M5.Lcd.height() / INT_COLS);
+float pixels[AMG88xx_PIXEL_ARRAY_SIZE];
 
 float   get_point(float *p, uint8_t rows, uint8_t cols, int8_t x, int8_t y);
 void    set_point(float *p, uint8_t rows, uint8_t cols, int8_t x, int8_t y, float f);
@@ -122,17 +124,23 @@ float   cubicInterpolate(float p[], float x);
 float   bicubicInterpolate(float p[], float x, float y);
 void    interpolate_image(float *src, uint8_t src_rows, uint8_t src_cols, float *dest, uint8_t dest_rows, uint8_t dest_cols);
 
+/***************************************************************************
+    Setup variables for counter
+ ***************************************************************************/
+unsigned long duration;
+unsigned long starttime;
 
 /***************************************************************************
     Setup SD Card Variables
  ***************************************************************************/
 
-const byte SD_CS = 4;
+ const byte SD_CS = 4;
 
-const int w = 480;     // image width in pixels
-const int h = 320;     // height
+// These variable are also used in the Grab Image Function
+const int img_width = 480;     // image width in pixels
+const int img_height = 320;     // height
 
-char str[] = "TEST11.BMP";
+char sdfilewrite[] = "TEST11.BMP";
 
 SdFat SD;
 File outFile;
@@ -161,11 +169,16 @@ void setup()
     drawScale();
     drawScaleValues();
     
-/* Setup Serial*/
+    // Get Start Time
+    starttime = millis();//get the current time;
+    
+    
+  /* Setup Serial*/
   Serial.begin(9600);
-  Serial.println("Starting Serial...");
+  Serial.println("Starting Serial 9600...");
   
-  // Initialize SD Card
+  /* Initialize SD Card
+  *
   if (!SD.begin(SD_CS))
   {
     Serial.println("Error Initializing SD Card");
@@ -173,6 +186,11 @@ void setup()
   }
 
   Serial.println("SD Card Ready for Writing");
+  *
+  writeFile(SD, "/hello.txt", "Hello world from M5Stack !!");
+  readFile(SD, "/hello.txt");
+  
+    */
     
 }
 
@@ -200,6 +218,7 @@ void loop() {
     if (sensor.isRunning)
     {
         amg.readPixels(sensor.arrayRaw);
+        serialprintArray()
         errorCheck();
         interpolate_image(sensor.arrayRaw, AMG_ROWS, AMG_COLS, sensor.arrayInt, INT_ROWS, INT_COLS);
         checkValues();
@@ -270,6 +289,13 @@ void menu(void)
          */
         if (M5.BtnB.wasPressed())
             sensor.isRunning = true;
+            savetime = millis()
+            
+            amg.readPixels(sensor.arrayRaw);
+            interpolate_image(sensor.arrayRaw, AMG_ROWS, AMG_COLS, sensor.arrayInt, INT_ROWS, INT_COLS);
+            
+
+            Serial.println((String)"Time: "+savetime+" R: "+ratio+" ");
         
         if (M5.BtnA.wasPressed())
             M5.powerOFF();
@@ -450,6 +476,59 @@ void drawMinMax(void) {
     }
 }
 
+void serialprintArray() {
+    //read all the pixels
+    amg.readPixels(pixels);
+
+    Serial.println("-- Array --");
+    Serial.println();
+    
+    Serial.print("[");
+    for(int i=1; i<=AMG88xx_PIXEL_ARRAY_SIZE; i++){
+        Serial.print(pixels[i-1]);
+        Serial.print(", ");
+        if( i%8 == 0 ) Serial.println();
+    }
+
+    Serial.println("]");
+    Serial.println();
+
+    //delay a second
+    delay(1000);
+}
+
+void readFile(fs::FS &fs, const char * path) {
+    Serial.printf("Reading file: %s\n", path);
+
+    File file = fs.open(path);
+    if(!file){
+        Serial.println("Failed to open file for reading");
+        return;
+    }
+
+    Serial.print("Read from file: ");
+    while(file.available()){
+        int ch = file.read();
+        Serial.write(ch);
+    }
+}
+
+void writeFile(fs::FS &fs, const char * path, const char * message){
+    Serial.printf("Writing file: %s\n", path);
+
+    File file = fs.open(path, FILE_WRITE);
+    if(!file){
+        Serial.println("Failed to open file for writing");
+        return;
+    }
+    if(file.print(message)){
+        Serial.println("File written");
+    } else {
+        Serial.println("Write failed");
+    }
+}
+
+
 
 /*
  * Draw the interpolated array for saving [Placeholder]
@@ -469,17 +548,19 @@ void drawSave(void) {
 /*
  * Grab Image
  */
-void GrabImage(char* str){
+void GrabImage(char* sdfilewrite){
   byte VH, VL;
   int i, j = 0;
 
   //Create the File
-  outFile = SD.open(str, FILE_WRITE);
+  outFile = SD.open(sdfilewrite, FILE_WRITE);
   if (! outFile) {
-    Serial.println("err opng file");
+    Serial.println("Error opening file");
     return;
   };
 
+    
+  // Create BMP File Headers
   unsigned char bmFlHdr[14] = {
     'B', 'M', 0, 0, 0, 0, 0, 0, 0, 0, 54, 0, 0, 0
   };
@@ -493,6 +574,7 @@ void GrabImage(char* str){
   // 16 = bits per pixel
   // all other header info = 0, including RI_RGB (no compr), DPI resolution
 
+  // Define Filesize
   unsigned long fileSize = 2ul * h * w + 54; // pix data + 54 byte hdr
   
   bmFlHdr[ 2] = (unsigned char)(fileSize      ); // all ints stored little-endian
@@ -512,10 +594,10 @@ void GrabImage(char* str){
   outFile.write(bmFlHdr, sizeof(bmFlHdr));
   outFile.write(bmInHdr, sizeof(bmInHdr));
 
-  for (i = h; i > 0; i--) {
-    for (j = 0; j < w; j++) {
+  for (i = img_height; i > 0; i--) {
+    for (j = 0; j < img_width; j++) {
 
-      uint16_t rgb = readPixA(j,i); // get pix color in rgb565 format
+      uint16_t rgb = readPixA(j,i); // get pix color in rgb565 format.
       
       VH = (rgb & 0xFF00) >> 8; // High Byte
       VL = rgb & 0x00FF;        // Low Byte
@@ -532,4 +614,26 @@ void GrabImage(char* str){
   }
   //Close the file
   outFile.close();
+}
+
+uint16_t readPixA(int x, int y) { // get pixel color code in rgb565 format
+
+  tft.setAddrWindow(x,y,x,y);
+
+  digitalWrite(TFT_DC, LOW);
+  digitalWrite(TFT_CLK, LOW);
+  digitalWrite(TFT_CS, LOW);
+  tft.spiwrite(0x2E); // memory read command
+
+  digitalWrite(TFT_DC, HIGH);
+
+  uint16_t r = 0;
+  r = tft.spiread(); // discard dummy read
+  r = tft.spiread() >> 3; // red: use 5 highest bits (discard three LSB)
+  r = (r << 6) | tft.spiread() >> 2; // green: use 6 highest bits (discard two LSB)
+  r = (r << 5) | tft.spiread() >> 3; // blue: use 5 highest bits (discard three LSB)
+
+  digitalWrite(TFT_CS, HIGH);
+
+  return r;
 }
