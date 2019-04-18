@@ -31,6 +31,7 @@
 #include <M5Stack.h>
 #include <SPI.h>
 #include <Wire.h>
+#include <Adafruit_GFX.h>
 #include <Adafruit_AMG88xx.h>
 
 /***************************************************************************
@@ -64,7 +65,7 @@ String M0[] = {"MODE", "SCALE", "PAUSE"};                       // Default menu
 String M1[] = {"SMIN", "-", "+"};                               // Menu to set the scale min
 String M2[] = {"SMAX", "-", "+"};                               // Menu to set the scale max
 String M3[] = {"POINT", "MIN", "MAX"};                          // Menu to (de)activate pinpoint pixel
-String MF[] = {"OFF", " ", "START"};                            // Menu when frozen
+String MF[] = {"OFF", "SAVE", "START"};                         // Menu when frozen
 
 struct                      sensorData
 {
@@ -109,6 +110,7 @@ const uint16_t camColors[] = {
     0xF1C0, 0xF1A0, 0xF180, 0xF160, 0xF140, 0xF100, 0xF0E0, 0xF0C0, 0xF0A0, 0xF080, 0xF060,
     0xF040, 0xF020, 0xF800};                                    // Definition of the color used
 
+
 Adafruit_AMG88xx amg;
 uint16_t pixelSize = min(M5.Lcd.width() / INT_COLS, M5.Lcd.height() / INT_COLS);
 
@@ -119,6 +121,26 @@ void    get_adjacents_2d(float *src, float *dest, uint8_t rows, uint8_t cols, in
 float   cubicInterpolate(float p[], float x);
 float   bicubicInterpolate(float p[], float x, float y);
 void    interpolate_image(float *src, uint8_t src_rows, uint8_t src_cols, float *dest, uint8_t dest_rows, uint8_t dest_cols);
+
+
+/***************************************************************************
+    Setup SD Card Variables
+ ***************************************************************************/
+
+const byte SD_CS = 4;
+
+const int w = 480;     // image width in pixels
+const int h = 320;     // height
+
+char str[] = "TEST11.BMP";
+
+SdFat SD;
+File outFile;
+
+
+/***************************************************************************
+    Start Setup Loop
+ ***************************************************************************/
 
 /*
  * Boot up the device. Init the M5Stack, wait for the sensor to answer and draw
@@ -138,6 +160,20 @@ void setup()
         delay(10);
     drawScale();
     drawScaleValues();
+    
+/* Setup Serial*/
+  Serial.begin(9600);
+  Serial.println("Starting Serial...");
+  
+  // Initialize SD Card
+  if (!SD.begin(SD_CS))
+  {
+    Serial.println("Error Initializing SD Card");
+    while (1);    //If failed, stop here
+  }
+
+  Serial.println("SD Card Ready for Writing");
+    
 }
 
 /*
@@ -228,6 +264,13 @@ void menu(void)
     {
         if (M5.BtnC.wasPressed())
             sensor.isRunning = true;
+        
+        /*
+         * Placeholder for "Save" function
+         */
+        if (M5.BtnB.wasPressed())
+            sensor.isRunning = true;
+        
         if (M5.BtnA.wasPressed())
             M5.powerOFF();
     }
@@ -382,6 +425,7 @@ void drawImage(void) {
     }
 }
 
+
 /*
  * Draw the pinpoint of min/max reading (if activated)
 */
@@ -404,4 +448,88 @@ void drawMinMax(void) {
         M5.Lcd.fillRect(maxX, maxY, pixelSize, pixelSize, WHITE);
         M5.Lcd.drawLine(maxX + (pixelSize / 2), maxY + (pixelSize / 2), 279, 5, WHITE);
     }
+}
+
+
+/*
+ * Draw the interpolated array for saving [Placeholder]
+ */
+void drawSave(void) {
+    for (int y = 0; y < INT_ROWS; y++) {
+        for (int x = 0; x < INT_COLS; x++) {
+            float pixel = get_point(sensor.arrayInt, INT_ROWS, INT_COLS, x, y);
+            pixel = (pixel >= sensor.maxScale) ? sensor.maxScale : (pixel <= sensor.minScale) ? sensor.minScale : pixel;
+            uint8_t colorIndex = constrain(map((int)pixel, sensor.minScale, sensor.maxScale, 0, 255), 0, 255);
+            if ((pixelSize * y) < 220)
+                M5.Lcd.fillRect(40 + pixelSize * x, pixelSize * y, pixelSize, pixelSize, camColors[colorIndex]);
+        }
+    }
+}
+
+/*
+ * Grab Image
+ */
+void GrabImage(char* str){
+  byte VH, VL;
+  int i, j = 0;
+
+  //Create the File
+  outFile = SD.open(str, FILE_WRITE);
+  if (! outFile) {
+    Serial.println("err opng file");
+    return;
+  };
+
+  unsigned char bmFlHdr[14] = {
+    'B', 'M', 0, 0, 0, 0, 0, 0, 0, 0, 54, 0, 0, 0
+  };
+  // 54 = std total "old" Windows BMP file header size = 14 + 40
+  
+  unsigned char bmInHdr[40] = {
+    40, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 16, 0
+  };   
+  // 40 = info header size
+  //  1 = num of color planes
+  // 16 = bits per pixel
+  // all other header info = 0, including RI_RGB (no compr), DPI resolution
+
+  unsigned long fileSize = 2ul * h * w + 54; // pix data + 54 byte hdr
+  
+  bmFlHdr[ 2] = (unsigned char)(fileSize      ); // all ints stored little-endian
+  bmFlHdr[ 3] = (unsigned char)(fileSize >>  8); // i.e., LSB first
+  bmFlHdr[ 4] = (unsigned char)(fileSize >> 16);
+  bmFlHdr[ 5] = (unsigned char)(fileSize >> 24);
+
+  bmInHdr[ 4] = (unsigned char)(       w      );
+  bmInHdr[ 5] = (unsigned char)(       w >>  8);
+  bmInHdr[ 6] = (unsigned char)(       w >> 16);
+  bmInHdr[ 7] = (unsigned char)(       w >> 24);
+  bmInHdr[ 8] = (unsigned char)(       h      );
+  bmInHdr[ 9] = (unsigned char)(       h >>  8);
+  bmInHdr[10] = (unsigned char)(       h >> 16);
+  bmInHdr[11] = (unsigned char)(       h >> 24);
+
+  outFile.write(bmFlHdr, sizeof(bmFlHdr));
+  outFile.write(bmInHdr, sizeof(bmInHdr));
+
+  for (i = h; i > 0; i--) {
+    for (j = 0; j < w; j++) {
+
+      uint16_t rgb = readPixA(j,i); // get pix color in rgb565 format
+      
+      VH = (rgb & 0xFF00) >> 8; // High Byte
+      VL = rgb & 0x00FF;        // Low Byte
+      
+      //RGB565 to RGB555 conversion... 555 is default for uncompressed BMP
+      //this conversion is from ...topic=177361.0 and has not been verified
+      VL = (VH << 7) | ((VL & 0xC0) >> 1) | (VL & 0x1f);
+      VH = VH >> 1;
+      
+      //Write image data to file, low byte first
+      outFile.write(VL);
+      outFile.write(VH);
+    }
+  }
+  //Close the file
+  outFile.close();
 }
