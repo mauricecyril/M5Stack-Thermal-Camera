@@ -161,8 +161,7 @@ void setup()
   Serial.begin(9600);
   Serial.println("Starting Serial 9600...");
   
-  writeFile(SD, "/hello.txt", "Hello world from M5Stack !!");
-  readFile(SD, "/hello.txt");
+
     
 }
 
@@ -190,7 +189,7 @@ void loop() {
     if (sensor.isRunning)
     {
         amg.readPixels(sensor.arrayRaw);
-        serialprintArray()
+        serialprintArray();
         errorCheck();
         interpolate_image(sensor.arrayRaw, AMG_ROWS, AMG_COLS, sensor.arrayInt, INT_ROWS, INT_COLS);
         checkValues();
@@ -260,14 +259,8 @@ void menu(void)
          * Placeholder for "Save" function
          */
         if (M5.BtnB.wasPressed())
+            savearray();
             sensor.isRunning = true;
-            savetime = millis()
-            
-            amg.readPixels(sensor.arrayRaw);
-            interpolate_image(sensor.arrayRaw, AMG_ROWS, AMG_COLS, sensor.arrayInt, INT_ROWS, INT_COLS);
-            
-
-            Serial.println((String)"Time: "+savetime+" R: "+ratio+" ");
         
         if (M5.BtnA.wasPressed())
             M5.powerOFF();
@@ -498,4 +491,15 @@ void writeFile(fs::FS &fs, const char * path, const char * message){
     } else {
         Serial.println("Write failed");
     }
+}
+
+
+void saveArray() {
+    savetime = millis();
+    rawarray = amg.readPixels(sensor.arrayRaw);
+    entry = ((String)"Time: "+savetime+", Array: "+rawarray+" "));
+    Serial.println((String)"Time: "+savetime+" Array: "+rawarray+" ");
+    writeFile(SD, ""/"+savetime+".txt"", entry);
+ 
+
 }
