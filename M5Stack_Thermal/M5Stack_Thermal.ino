@@ -30,7 +30,6 @@
 
 #include <M5Stack.h>
 #include <SPI.h>
-// #include <SdFat.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_AMG88xx.h>
@@ -66,7 +65,7 @@ String M0[] = {"MODE", "SCALE", "PAUSE"};                       // Default menu
 String M1[] = {"SMIN", "-", "+"};                               // Menu to set the scale min
 String M2[] = {"SMAX", "-", "+"};                               // Menu to set the scale max
 String M3[] = {"POINT", "MIN", "MAX"};                          // Menu to (de)activate pinpoint pixel
-String MF[] = {"OFF", "SAVE", "START"};                         // Menu when frozen
+String MF[] = {"OFF", "SERIAL", "START"};                         // Menu when frozen
 
 struct                      sensorData
 {
@@ -129,6 +128,7 @@ void    interpolate_image(float *src, uint8_t src_rows, uint8_t src_cols, float 
  ***************************************************************************/
 unsigned long duration;
 unsigned long starttime;
+unsigned long savetime;
 
 /***************************************************************************
     Start Setup Loop
@@ -183,13 +183,12 @@ void setup()
 */
 void loop() {
     long start = millis();
-    if (millis() / 60000 > sensor.sleepTime + ((SLEEP > 0) ? SLEEP : 5))
-        M5.powerOFF();
+//    if (millis() / 60000 > sensor.sleepTime + ((SLEEP > 0) ? SLEEP : 5))
+//        M5.powerOFF();
     menu();
     if (sensor.isRunning)
     {
         amg.readPixels(sensor.arrayRaw);
-        serialprintArray();
         errorCheck();
         interpolate_image(sensor.arrayRaw, AMG_ROWS, AMG_COLS, sensor.arrayInt, INT_ROWS, INT_COLS);
         checkValues();
@@ -254,14 +253,12 @@ void menu(void)
     {
         if (M5.BtnC.wasPressed())
             sensor.isRunning = true;
-        
-        /*
-         * Placeholder for "Save" function
-         */
+            
+       
         if (M5.BtnB.wasPressed())
-            savearray();
-            sensor.isRunning = true;
-        
+            //savearray();
+            serialprintArray();  
+          
         if (M5.BtnA.wasPressed())
             M5.powerOFF();
     }
@@ -494,12 +491,9 @@ void writeFile(fs::FS &fs, const char * path, const char * message){
 }
 
 
-void saveArray() {
-    savetime = millis();
-    rawarray = amg.readPixels(sensor.arrayRaw);
-    entry = ((String)"Time: "+savetime+", Array: "+rawarray+" "));
-    Serial.println((String)"Time: "+savetime+" Array: "+rawarray+" ");
-    writeFile(SD, ""/"+savetime+".txt"", entry);
- 
+//void saveArray() {
+//    savetime = millis();
+//    Serial.println("Time: "+savetime+", Array: "+amg.readPixels(sensor.arrayRaw)+" "));
+//    writeFile(SD, "/"+savetime+".txt", (String)"Time: "+savetime+", Array: "+amg.readPixels(sensor.arrayRaw)+" "));
 
-}
+//}
